@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batcomputer Interface</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #080a0d;
+            --glow: #00b4ff;
+            --accent: #f5a623;
+            --data: #4dffb0;
+            --override: #ff1493; /* Neon Pink */
+            
+            --font-ui: 'Orbitron', sans-serif;
+            --font-data: 'Share Tech Mono', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--glow);
+            font-family: var(--font-ui);
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            cursor: crosshair;
+            perspective: 1000px;
+        }
+
+        /* ATMOSPHERE: GRID */
+        .grid-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background-image: 
+                linear-gradient(rgba(0, 180, 255, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 180, 255, 0.04) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* ATMOSPHERE: VIGNETTE */
+        .vignette {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: radial-gradient(circle at center, transparent 30%, var(--bg) 110%);
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* ATMOSPHERE: SCANLINES */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 200vh;
+            background: repeating-linear-gradient(
+                to bottom,
+                transparent,
+                transparent 4px,
+                var(--glow) 4px,
+                var(--glow) 6px
+            );
+            opacity: 0.03;
+            z-index: 9999;
+            pointer-events: none;
+            animation: scanlineScroll 8s linear infinite;
+        }
+
+        @keyframes scanlineScroll {
+            0% { transform: translateY(-50%); }
+            100% { transform: translateY(0); }
+        }
+
+        /* ATMOSPHERE: PARTICLES */
+        #particles {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: 1;
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        /* HUD BRACKETS */
+        .bracket {
+            position: fixed;
+            width: 40px; height: 40px;
+            border: 2px solid var(--glow);
+            z-index: 10;
+            pointer-events: none;
+            opacity: 0.5;
+        }
+        .bracket.tl { top: 20px; left: 20px; border-bottom: none; border-right: none; }
+        .bracket.tr { top: 20px; right: 20px; border-bottom: none; border-left: none; }
+        .bracket.bl { bottom: 48px; left: 20px; border-top: none; border-right: none; }
+        .bracket.br { bottom: 48px; right: 20px; border-top: none; border-left: none; }
+
+        /* BOOT SEQUENCE */
+        #boot-screen {
+            position: fixed;
+            top: 60px;
+            left: 60px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            font-family: var(--font-data);
+            color: var(--data);
+            font-size: 1.1rem;
+            line-height: 1.8;
+            pointer-events: none;
+            text-shadow: 0 0 8px rgba(77, 255, 176, 0.4);
+        }
+        .boot-line {
+            min-height: 1.8rem;
+        }
+        .cursor {
+            display: inline-block;
+            width: 10px;
+            height: 1.2rem;
+            background-color: var(--data);
+            vertical-align: middle;
+            animation: blink 1s step-end infinite;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+        
+        .flicker-out {
+            animation: flashOut 0.2s steps(2, end) forwards, fadeOut 0.2s 0.2s ease-out forwards;
+        }
+        @keyframes flashOut {
+            0%, 40%, 80% { opacity: 1; }
+            20%, 60%, 100% { opacity: 0; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; visibility: visible; }
+            to { opacity: 0; visibility: hidden; }
+        }
+
+        /* MAIN CONTENT CONTAINER */
+        #main-interface {
+            position: relative;
+            z-index: 5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* CENTER BAT & KADY TEXT */
+        .center-console {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transform: translateY(-40px);
+            transition: transform 0.1s ease-out; /* For 3D Parallax */
+            transform-style: preserve-3d;
+        }
+
+        .bat-logo {
+            width: 280px;
+            fill: var(--glow);
+            filter: drop-shadow(0 0 8px var(--glow));
+            animation: batPulse 3s infinite alternate;
+            transform: translateZ(30px); /* Lifts it off the page */
+        }
+        @keyframes batPulse {
+            0% { filter: drop-shadow(0 0 8px var(--glow)); }
+            100% { filter: drop-shadow(0 0 24px var(--glow)); }
+        }
+
+        .glitch-active {
+            animation: glitchJump 0.25s linear;
+            filter: hue-rotate(90deg) drop-shadow(0 0 15px var(--glow));
+        }
+        @keyframes glitchJump {
+            0% { transform: translateZ(30px) translate(0, 0); clip-path: inset(0 0 0 0); }
+            20% { transform: translateZ(30px) translate(3px, -2px); clip-path: inset(10% 0 50% 0); }
+            40% { transform: translateZ(30px) translate(-3px, 2px); clip-path: inset(40% 0 20% 0); }
+            60% { transform: translateZ(30px) translate(3px, 1px); clip-path: inset(80% 0 5% 0); }
+            80% { transform: translateZ(30px) translate(-1px, -2px); clip-path: inset(20% 0 60% 0); }
+            100% { transform: translateZ(30px) translate(0, 0); clip-path: inset(0 0 0 0); }
+        }
+
+        .kady-text {
+            margin-top: 20px;
+            font-size: 2rem;
+            font-weight: 900;
+            letter-spacing: 0.4em;
+            color: var(--glow);
+            text-shadow: 0 0 10px rgba(0, 180, 255, 0.5);
+            margin-right: -0.4em; 
+            transform: translateZ(50px);
+        }
+        .text-flicker {
+            animation: slightFlicker 7s infinite;
+        }
+        @keyframes slightFlicker {
+            0%, 94%, 96%, 98%, 100% { opacity: 1; }
+            95%, 97% { opacity: 0.4; }
+        }
+
+        /* HUD CLOCK & TOP UI */
+        #hud-clock {
+            position: fixed;
+            top: 40px;
+            right: 40px;
+            border-top: 1px solid rgba(0, 180, 255, 0.4);
+            border-right: 1px solid rgba(0, 180, 255, 0.4);
+            padding: 10px 15px;
+            text-align: right;
+            background: linear-gradient(to bottom left, rgba(0, 180, 255, 0.05), transparent 60%);
+        }
+        .clock-label {
+            font-size: 0.6rem;
+            font-weight: 700;
+            letter-spacing: 0.2em;
+            color: rgba(0, 180, 255, 0.6);
+            margin-bottom: 2px;
+        }
+        .clock-time {
+            font-family: var(--font-data);
+            font-size: 2.2rem;
+            color: var(--glow);
+            text-shadow: 0 0 10px rgba(0, 180, 255, 0.4);
+            line-height: 1;
+            display: flex;
+            align-items: baseline;
+            justify-content: flex-end;
+            gap: 6px;
+        }
+        .clock-ampm {
+            font-size: 1rem;
+            color: var(--accent);
+            letter-spacing: 0.1em;
+        }
+        .clock-date {
+            font-family: var(--font-data);
+            font-size: 0.9rem;
+            color: var(--accent);
+            letter-spacing: 0.1em;
+            margin-top: 4px;
+        }
+
+        /* PINK OVERRIDE FLASH */
+        #pink-override {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: var(--override);
+            mix-blend-mode: color-dodge;
+            z-index: 19999;
+            pointer-events: none;
+            opacity: 0;
+        }
+        .flash-pink {
+            animation: overrideFlash 0.4s cubic-bezier(0.1, 0.8, 0.2, 1);
+        }
+        @keyframes overrideFlash {
+            0% { opacity: 0; }
+            20% { opacity: 0.9; }
+            40% { opacity: 0.2; }
+            60% { opacity: 0.8; }
+            100% { opacity: 0; }
+        }
+
+        /* BUTLER OVERLAY (EASTER EGG) */
+        #butler-modal {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(8, 10, 13, 0.9);
+            backdrop-filter: blur(6px);
+            z-index: 15000;
+            display: none; 
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .butler-container {
+            display: flex;
+            align-items: center;
+            gap: 40px;
+            max-width: 900px;
+            padding: 40px;
+        }
+        .butler-img {
+            max-height: 350px;
+            border-radius: 4px;
+            filter: drop-shadow(0 0 25px rgba(0, 180, 255, 0.6));
+            animation: butlerFloat 4s ease-in-out infinite;
+        }
+        @keyframes butlerFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .butler-dialogue-box {
+            border-left: 2px solid var(--override);
+            padding: 20px 30px;
+            background: linear-gradient(90deg, rgba(255,20,147,0.1), transparent);
+            min-width: 450px;
+            min-height: 180px;
+        }
+        .butler-text {
+            font-family: var(--font-data);
+            color: var(--override);
+            font-size: 1.3rem;
+            line-height: 1.6;
+            text-shadow: 0 0 8px rgba(255, 20, 147, 0.5);
+        }
+        .butler-text .cursor {
+            background-color: var(--override);
+        }
+        #close-butler {
+            margin-top: 30px;
+            border: 1px solid var(--override);
+            background: transparent;
+            color: var(--override);
+            font-family: var(--font-ui);
+            padding: 10px 30px;
+            font-size: 0.8rem;
+            letter-spacing: 0.2em;
+            cursor: crosshair;
+            transition: all 0.3s;
+        }
+        #close-butler:hover {
+            background: rgba(255, 20, 147, 0.2);
+            box-shadow: 0 0 15px rgba(255, 20, 147, 0.4);
+        }
+
+        /* QUICK-LAUNCH DOCK */
+        .dock {
+            position: fixed;
+            bottom: 80px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            transition: transform 0.1s ease-out;
+            transform-style: preserve-3d;
+        }
+        .target-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100px;
+            height: 110px;
+            background: rgba(0, 180, 255, 0.04);
+            border: 1px solid rgba(0, 180, 255, 0.2);
+            text-decoration: none;
+            color: var(--glow);
+            position: relative;
+            transition: background 0.2s, border 0.2s, box-shadow 0.2s, transform 0.2s;
+            overflow: hidden;
+            transform: translateZ(20px);
+        }
+        .target-card::after {
+            content: '';
+            position: absolute;
+            bottom: -5px; right: -5px;
+            width: 20px; height: 1px;
+            background: var(--glow);
+            transform: rotate(-45deg);
+        }
+        .target-card::before {
+            content: '';
+            position: absolute;
+            top: -2px; left: 0;
+            width: 100%; height: 2px;
+            background: var(--glow);
+            box-shadow: 0 0 8px var(--glow);
+            opacity: 0;
+        }
+        .target-card:hover {
+            background: rgba(0, 180, 255, 0.1);
+            border-color: rgba(0, 180, 255, 0.6);
+            box-shadow: 0 0 16px rgba(0, 180, 255, 0.3);
+            cursor: crosshair;
+            transform: translateZ(40px); /* Lifts higher on hover */
+        }
+        .target-card:hover::before {
+            animation: scanSweep 0.3s forwards;
+        }
+        @keyframes scanSweep {
+            0% { top: 0; opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+        .target-icon {
+            width: 32px;
+            height: 32px;
+            fill: none;
+            stroke: var(--glow);
+            stroke-width: 2;
+            margin-bottom: 12px;
+            transition: stroke 0.3s;
+        }
+        .target-card:hover .target-icon {
+            stroke-width: 2.5;
+            filter: drop-shadow(0 0 5px var(--glow));
+        }
+        .target-label {
+            font-size: 0.6rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+        }
+
+        /* STATUS BAR */
+        .status-bar {
+            position: fixed;
+            bottom: 0; left: 0; width: 100vw; height: 28px;
+            background: rgba(0, 0, 0, 0.6);
+            border-top: 1px solid rgba(0, 180, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 100;
+            font-family: var(--font-data);
+            font-size: 0.6rem;
+            color: var(--data);
+        }
+        .marquee-container {
+            flex-grow: 1;
+            overflow: hidden;
+            white-space: nowrap;
+            padding-left: 10px;
+        }
+        .marquee-text {
+            display: inline-block;
+            animation: marquee 30s linear infinite;
+        }
+        @keyframes marquee {
+            0% { transform: translateX(100vw); }
+            100% { transform: translateX(-100%); }
+        }
+        .hud-stats {
+            display: flex;
+            align-items: flex-end;
+            gap: 4px;
+            padding: 0 15px;
+            height: 100%;
+            padding-bottom: 6px;
+        }
+        .stat-bar {
+            width: 4px;
+            background: var(--glow);
+            opacity: 0.8;
+        }
+        .stat-bar.b1 { height: 8px; }
+        .stat-bar.b2 { height: 12px; }
+        .stat-bar.b3 { height: 16px; }
+        .stat-circle {
+            width: 12px; height: 12px;
+            border: 2px solid var(--glow);
+            border-radius: 50%;
+            opacity: 0.7;
+            margin-left: 6px;
+            transform: translateY(2px);
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- BOOT SEQUENCE -->
+    <div id="boot-screen">
+        <div id="boot-text"></div>
+    </div>
+
+    <!-- PINK FLASH OVERRIDE -->
+    <div id="pink-override"></div>
+
+    <!-- BUTLER MODAL (EASTER EGG) -->
+    <div id="butler-modal">
+        <div class="butler-container">
+            <img src="butler.png" alt="Butler" class="butler-img" onerror="this.style.display='none'">
+            <div class="butler-dialogue-box">
+                <div id="butler-text" class="butler-text"></div>
+            </div>
+        </div>
+        <button id="close-butler">[ DISCONNECT ]</button>
+    </div>
+
+    <!-- ATMOSPHERE -->
+    <div class="grid-bg"></div>
+    <div class="vignette"></div>
+    <canvas id="particles"></canvas>
+
+    <!-- CORNER BRACKETS -->
+    <div class="bracket tl"></div>
+    <div class="bracket tr"></div>
+    <div class="bracket bl"></div>
+    <div class="bracket br"></div>
+
+    <!-- MAIN INTERFACE -->
+    <div id="main-interface">
+        
+        <!-- HUD CLOCK (TOP RIGHT) -->
+        <div id="hud-clock">
+            <div class="clock-label">SYSTEM TIME</div>
+            <div class="clock-time scramble" id="time-display">
+                <span id="time-digits">00:00:00</span>
+                <span class="clock-ampm" id="time-ampm">AM</span>
+            </div>
+            <div class="clock-date scramble" id="date-display">DAY // 00 MON 0000</div>
+        </div>
+
+        <!-- CENTER CONSOLE -->
+        <div class="center-console" id="console-3d">
+            <svg class="bat-logo" viewBox="0 0 280 120" xmlns="http://www.w3.org/2000/svg">
+                <path d="M 140,110
+                         C 120,100 110,75 100,70
+                         C 80,85 50,100 10,100
+                         C 25,80 35,55 35,45
+                         C 20,50 10,55 0,55
+                         C 20,25 60,15 90,20
+                         C 105,15 115,30 125,30
+                         L 130,15 L 135,25 L 140,25 L 145,25 L 150,15 L 155,30
+                         C 165,30 175,15 190,20
+                         C 220,15 260,25 280,55
+                         C 270,55 260,50 245,45
+                         C 245,55 255,80 270,100
+                         C 230,100 200,85 180,70
+                         C 170,75 160,100 140,110 Z" />
+            </svg>
+            <div class="kady-text text-flicker scramble">KADY</div>
+        </div>
+
+        <!-- QUICK-LAUNCH DOCK -->
+        <div class="dock" id="dock-3d">
+            <a href="https://mail.google.com" class="target-card">
+                <svg class="target-icon" viewBox="0 0 24 24">
+                    <rect x="3" y="5" width="18" height="14" rx="2" />
+                    <polyline points="3 7 12 13 21 7" />
+                </svg>
+                <span class="target-label scramble">MAIL</span>
+            </a>
+            <a href="https://youtube.com" class="target-card">
+                <svg class="target-icon" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" />
+                    <polygon points="10 8 16 12 10 16 10 8" />
+                </svg>
+                <span class="target-label scramble">STREAM</span>
+            </a>
+            <a href="https://pinterest.com" class="target-card">
+                <svg class="target-icon" viewBox="0 0 24 24">
+                    <rect x="5" y="5" width="6" height="6" />
+                    <rect x="13" y="5" width="6" height="6" />
+                    <rect x="5" y="13" width="6" height="6" />
+                    <rect x="13" y="13" width="6" height="6" />
+                </svg>
+                <span class="target-label scramble">BOARDS</span>
+            </a>
+            <a href="https://roblox.com" class="target-card">
+                <svg class="target-icon" viewBox="0 0 24 24">
+                    <rect x="4" y="4" width="16" height="16" transform="rotate(15 12 12)" />
+                    <rect x="10" y="10" width="4" height="4" transform="rotate(15 12 12)" />
+                </svg>
+                <span class="target-label scramble">ROBLOX</span>
+            </a>
+            <a href="https://mypassco.instructure.com" class="target-card">
+                <svg class="target-icon" viewBox="0 0 24 24">
+                    <path d="M4 19C4 19 4 6 4 5C4 3.89543 4.89543 3 6 3H10C11.1046 3 12 3.89543 12 5V19M4 19C4 20.1046 4.89543 21 6 21H10C11.1046 21 12 20.1046 12 19M4 19H12M12 19C12 19 12 6 12 5C12 3.89543 12.8954 3 14 3H18C19.1046 3 20 3.89543 20 5V19M12 19C12 20.1046 12.8954 21 14 21H18C19.1046 21 20 20.1046 20 19M12 19H20" />
+                </svg>
+                <span class="target-label scramble">PASCO</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class="status-bar">
+        <div class="marquee-container">
+            <span class="marquee-text scramble">// GOTHAM CITY NETWORK — SECURE CONNECTION ESTABLISHED // ENCRYPTION ACTIVE // ALL SYSTEMS OPERATIONAL // PERIMETER: CLEAR // NO ACTIVE THREATS DETECTED //</span>
+        </div>
+        <div class="hud-stats">
+            <div class="stat-bar b1"></div>
+            <div class="stat-bar b2"></div>
+            <div class="stat-bar b3"></div>
+            <div class="stat-circle"></div>
+        </div>
+    </div>
+
+    <script>
+        /* --- MOUSE TRACKING FOR 3D PARALLAX & PHYSICS --- */
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+        
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            
+            // 3D Parallax Tilt
+            const xOffset = (window.innerWidth / 2 - mouseX) / 40;
+            const yOffset = (window.innerHeight / 2 - mouseY) / 40;
+            
+            document.getElementById('console-3d').style.transform = `translateY(-40px) rotateY(${-xOffset}deg) rotateX(${yOffset}deg)`;
+            document.getElementById('dock-3d').style.transform = `rotateY(${-xOffset / 2}deg) rotateX(${yOffset / 2}deg)`;
+        });
+
+        /* --- AUDIO SYSTEM --- */
+        function playClick() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.frequency.value = 880;
+                gain.gain.setValueAtTime(0.05, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.08);
+            } catch(e) {}
+        }
+
+        function playPinkFlashSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const gain = ctx.createGain();
+                gain.connect(ctx.destination);
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+
+                const osc1 = ctx.createOscillator();
+                osc1.type = 'square';
+                osc1.frequency.setValueAtTime(150, ctx.currentTime);
+                osc1.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.3);
+                osc1.connect(gain);
+
+                osc1.start(); 
+                osc1.stop(ctx.currentTime + 0.5); 
+            } catch(e) {}
+        }
+
+        /* --- PARTICLES WITH PHYSICS --- */
+        const canvas = document.getElementById('particles');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let particles = [];
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.r = Math.random() * 1.5 + 0.5;
+                this.baseVy = -(Math.random() * 0.3 + 0.1);
+                this.vy = this.baseVy;
+                this.vx = 0;
+                this.opacity = Math.random() * 0.3 + 0.3;
+            }
+            update() {
+                // Interactive Mouse Repel Physics
+                const dx = mouseX - this.x;
+                const dy = mouseY - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist < 120) {
+                    const force = (120 - dist) / 120;
+                    this.vx -= (dx / dist) * force * 0.5;
+                    this.vy -= (dy / dist) * force * 0.5;
+                }
+
+                // Return to normal speed
+                this.vx *= 0.95;
+                this.vy = this.vy * 0.95 + this.baseVy * 0.05;
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.y < -10) {
+                    this.y = height + 10;
+                    this.x = Math.random() * width;
+                    this.vx = 0;
+                }
+                if (this.x < -10) this.x = width + 10;
+                if (this.x > width + 10) this.x = -10;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(0, 180, 255, ${this.opacity})`;
+                ctx.fill();
+            }
+        }
+
+        for (let i = 0; i < 60; i++) particles.push(new Particle());
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, width, height);
+            particles.forEach(p => { p.update(); p.draw(); });
+            requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
+
+        /* --- CLOCK (12-HOUR FORMAT) --- */
+        function updateClock() {
+            const now = new Date();
+            
+            let hours = now.getHours();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12; // 0 becomes 12
+            
+            const h = String(hours).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const s = String(now.getSeconds()).padStart(2, '0');
+            
+            document.getElementById('time-digits').innerText = `${h}:${m}:${s}`;
+            document.getElementById('time-ampm').innerText = ampm;
+            
+            const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+            const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+            const dayName = days[now.getDay()];
+            const dayNum = String(now.getDate()).padStart(2, '0');
+            const monthName = months[now.getMonth()];
+            const year = now.getFullYear();
+            
+            document.getElementById('date-display').innerText = `${dayName} // ${dayNum} ${monthName} ${year}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        /* --- BAT GLITCH --- */
+        const batLogo = document.querySelector('.bat-logo');
+        function triggerGlitch() {
+            batLogo.classList.add('glitch-active');
+            setTimeout(() => {
+                batLogo.classList.remove('glitch-active');
+            }, 250);
+            
+            const nextTime = Math.random() * 5000 + 5000;
+            setTimeout(triggerGlitch, nextTime);
+        }
+        setTimeout(triggerGlitch, 5000);
+
+        /* --- HOVER AUDIO BINDING --- */
+        document.querySelectorAll('.target-card, #close-butler').forEach(el => {
+            el.addEventListener('mouseenter', playClick);
+        });
+
+        /* --- BOOT SEQUENCE --- */
+        const bootLines = [
+            "BATMAN INCORPORATED NETWORK",
+            "AUTHENTICATING USER...",
+            "IDENTITY CONFIRMED: KADY",
+            "THREAT LEVEL: NOMINAL",
+            "LOADING BATCOMPUTER INTERFACE...",
+            "WELCOME BACK."
+        ];
+        
+        async function runBootSequence() {
+            const container = document.getElementById('boot-text');
+            
+            for (let i = 0; i < bootLines.length; i++) {
+                const lineDiv = document.createElement('div');
+                lineDiv.className = 'boot-line';
+                container.appendChild(lineDiv);
+                
+                const text = bootLines[i];
+                for (let j = 0; j < text.length; j++) {
+                    lineDiv.innerHTML = text.substring(0, j + 1) + '<span class="cursor"></span>';
+                    await new Promise(r => setTimeout(r, 8));
+                }
+                lineDiv.innerHTML = text;
+                if (i < bootLines.length - 1) {
+                    await new Promise(r => setTimeout(r, 80));
+                }
+            }
+            
+            await new Promise(r => setTimeout(r, 200));
+            
+            const bootScreen = document.getElementById('boot-screen');
+            bootScreen.classList.add('flicker-out');
+            
+            setTimeout(() => {
+                bootScreen.style.display = 'none';
+            }, 400); 
+        }
+        window.addEventListener('load', runBootSequence);
+
+        /* --- BUTLER PROTOCOL (PINK OVERRIDE ACTIVATION) --- */
+        const butlerModal = document.getElementById('butler-modal');
+        const closeButler = document.getElementById('close-butler');
+        const butlerTextEl = document.getElementById('butler-text');
+        const pinkFlash = document.getElementById('pink-override');
+        let typeWriterTimeout;
+
+        function activateButlerProtocol() {
+            // Trigger Pink Overload
+            playPinkFlashSound();
+            pinkFlash.classList.add('flash-pink');
+            
+            setTimeout(() => {
+                pinkFlash.classList.remove('flash-pink');
+                butlerModal.style.display = 'flex';
+                
+                // Text rendering
+                const now = new Date();
+                let hours = now.getHours();
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12;
+                hours = hours ? hours : 12;
+                const h = String(hours).padStart(2, '0');
+                const m = String(now.getMinutes()).padStart(2, '0');
+                
+                const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+                const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+                
+                const timeStr = `${h}:${m} ${ampm}`;
+                const dateStr = `${days[now.getDay()]} // ${String(now.getDate()).padStart(2, '0')} ${months[now.getMonth()]} ${now.getFullYear()}`;
+                
+                const message = `HELLO KADY.\n\nIT IS CURRENTLY ${timeStr} ON ${dateStr}.\n\nHOPE YOU'RE HAVING A GOOD DAY.\nREMEMBER TO DRINK WATER, TAKE VITAMINS,\nAND WORK HARD.\n\nYOUR CITY NEEDS YOU.`;
+                
+                butlerTextEl.innerHTML = '';
+                clearTimeout(typeWriterTimeout);
+                
+                let i = 0;
+                function typeWriter() {
+                    if (i < message.length) {
+                        const char = message.charAt(i);
+                        butlerTextEl.innerHTML += char === '\n' ? '<br>' : char;
+                        i++;
+                        typeWriterTimeout = setTimeout(typeWriter, 25);
+                    } else {
+                        butlerTextEl.innerHTML += '<span class="cursor"></span>';
+                    }
+                }
+                typeWriter();
+            }, 200); // Trigger modal mid-flash
+        }
+
+        closeButler.addEventListener('click', () => {
+            playClick();
+            butlerModal.style.display = 'none';
+            clearTimeout(typeWriterTimeout);
+            butlerTextEl.innerHTML = '';
+        });
+
+        /* --- KONAMI CODE TRACKER --- */
+        const konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+        let konamiIndex = 0;
+
+        document.addEventListener('keydown', (e) => {
+            if (butlerModal.style.display === 'flex') return;
+            
+            if (e.key.toLowerCase() === konamiCode[konamiIndex].toLowerCase()) {
+                konamiIndex++;
+                if (konamiIndex === konamiCode.length) {
+                    activateButlerProtocol();
+                    konamiIndex = 0;
+                }
+            } else {
+                konamiIndex = 0;
+            }
+        });
+    </script>
+</body>
+</html>
